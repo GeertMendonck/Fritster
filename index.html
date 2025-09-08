@@ -1,67 +1,497 @@
-const CACHE_NAME = 'spotify-qr-scanner-v1';
-const urlsToCache = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  '/icon-192x192.png',
-  '/icon-512x512.png',
-  'https://cdnjs.cloudflare.com/ajax/libs/qr-scanner/1.4.2/qr-scanner.umd.min.js'
-];
-
-// Install event
-self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then((cache) => {
-        console.log('Opened cache');
-        return cache.addAll(urlsToCache);
-      })
-  );
-});
-
-// Fetch event
-self.addEventListener('fetch', (event) => {
-  event.respondWith(
-    caches.match(event.request)
-      .then((response) => {
-        // Cache hit - return response
-        if (response) {
-          return response;
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#1DB954">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Spotify QR">
+    
+    <title>Spotify QR Scanner</title>
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
+    
+    <!-- Icons -->
+    <link rel="apple-touch-icon" href="icon-192x192.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="icon-192x192.png">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
 
-        return fetch(event.request).then((response) => {
-          // Check if we received a valid response
-          if (!response || response.status !== 200 || response.type !== 'basic') {
-            return response;
-          }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1DB954, #191414);
+            min-height: 100vh;
+            color: white;
+            overflow-x: hidden;
+        }
 
-          // Clone the response
-          const responseToCache = response.clone();
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
 
-          caches.open(CACHE_NAME)
-            .then((cache) => {
-              cache.put(event.request, responseToCache);
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-top: 20px;
+        }
+
+        .logo {
+            width: 80px;
+            height: 80px;
+            background: #1DB954;
+            border-radius: 50%;
+            margin: 0 auto 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 30px;
+            font-weight: bold;
+            color: white;
+            box-shadow: 0 8px 32px rgba(29, 185, 84, 0.3);
+        }
+
+        h1 {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .subtitle {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 14px;
+        }
+
+        .scanner-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .scanner-box {
+            position: relative;
+            width: 280px;
+            height: 280px;
+            border: 3px solid #1DB954;
+            border-radius: 20px;
+            margin-bottom: 30px;
+            overflow: hidden;
+            background: rgba(0, 0, 0, 0.3);
+        }
+
+        #video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 17px;
+        }
+
+        .scanner-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 200px;
+            height: 200px;
+            border: 2px solid #1DB954;
+            border-radius: 10px;
+            pointer-events: none;
+        }
+
+        .scanner-overlay::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            border: 2px solid #1DB954;
+            border-radius: 10px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.05); }
+        }
+
+        .scan-button {
+            background: #1DB954;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(29, 185, 84, 0.3);
+        }
+
+        .scan-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(29, 185, 84, 0.4);
+        }
+
+        .scan-button:disabled {
+            background: #666;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .status {
+            text-align: center;
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 14px;
+        }
+
+        .status.success {
+            background: rgba(29, 185, 84, 0.2);
+            color: #1DB954;
+            border: 1px solid rgba(29, 185, 84, 0.3);
+        }
+
+        .status.error {
+            background: rgba(255, 0, 0, 0.2);
+            color: #ff6b6b;
+            border: 1px solid rgba(255, 0, 0, 0.3);
+        }
+
+        .status.info {
+            background: rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .track-info {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            margin-top: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .track-title {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .track-artist {
+            color: rgba(255, 255, 255, 0.8);
+            margin-bottom: 15px;
+        }
+
+        .play-button {
+            background: #1DB954;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+        }
+
+        .play-button:hover {
+            background: #1ed760;
+        }
+
+        .install-prompt {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            transform: translateY(100px);
+            transition: transform 0.3s ease;
+            z-index: 1000;
+        }
+
+        .install-prompt.show {
+            transform: translateY(0);
+        }
+
+        .install-button {
+            background: #1DB954;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 15px;
+            margin-top: 10px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 15px;
+            }
+            
+            .scanner-box {
+                width: 250px;
+                height: 250px;
+            }
+            
+            .scanner-overlay {
+                width: 180px;
+                height: 180px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">♪</div>
+            <h1>Spotify QR Scanner</h1>
+            <p class="subtitle">Scan QR-codes om tracks af te spelen</p>
+        </div>
+
+        <div class="scanner-container">
+            <div class="scanner-box">
+                <video id="video" autoplay muted playsinline></video>
+                <div class="scanner-overlay"></div>
+            </div>
+            
+            <button id="scanButton" class="scan-button">Camera Starten</button>
+            
+            <div id="status" class="status info" style="display: none;">
+                Klaar om te scannen...
+            </div>
+
+            <div id="trackInfo" class="track-info" style="display: none;">
+                <div class="track-title" id="trackTitle"></div>
+                <div class="track-artist" id="trackArtist"></div>
+                <button class="play-button" id="playButton">▶ Afspelen op Spotify</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="installPrompt" class="install-prompt">
+        <div>Installeer deze app op je telefoon voor eenvoudig gebruik!</div>
+        <button id="installButton" class="install-button">Installeren</button>
+        <button id="dismissInstall" class="install-button" style="background: #666; margin-left: 10px;">Negeren</button>
+    </div>
+
+    <!-- QR Code Scanner Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qr-scanner/1.4.2/qr-scanner.umd.min.js"></script>
+    
+    <script>
+        let qrScanner = null;
+        let deferredPrompt = null;
+        let currentTrackUrl = null;
+
+        // DOM Elements
+        const video = document.getElementById('video');
+        const scanButton = document.getElementById('scanButton');
+        const status = document.getElementById('status');
+        const trackInfo = document.getElementById('trackInfo');
+        const trackTitle = document.getElementById('trackTitle');
+        const trackArtist = document.getElementById('trackArtist');
+        const playButton = document.getElementById('playButton');
+        const installPrompt = document.getElementById('installPrompt');
+        const installButton = document.getElementById('installButton');
+        const dismissInstall = document.getElementById('dismissInstall');
+
+        // Initialize app
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeApp();
+            setupInstallPrompt();
+        });
+
+        function initializeApp() {
+            scanButton.addEventListener('click', toggleScanner);
+            playButton.addEventListener('click', openSpotify);
+        }
+
+        async function toggleScanner() {
+            if (qrScanner) {
+                stopScanner();
+            } else {
+                await startScanner();
+            }
+        }
+
+        async function startScanner() {
+            try {
+                scanButton.disabled = true;
+                scanButton.textContent = 'Camera starten...';
+                
+                // Check if camera is available
+                const hasCamera = await QrScanner.hasCamera();
+                if (!hasCamera) {
+                    throw new Error('Geen camera gevonden op dit apparaat');
+                }
+
+                qrScanner = new QrScanner(
+                    video,
+                    result => handleScanResult(result),
+                    {
+                        onDecodeError: error => {
+                            // Negeer decode errors tijdens scannen
+                        },
+                        highlightScanRegion: true,
+                        highlightCodeOutline: true,
+                    }
+                );
+
+                await qrScanner.start();
+                
+                scanButton.textContent = 'Stop Scannen';
+                scanButton.disabled = false;
+                showStatus('Camera actief - houd QR-code voor de camera', 'info');
+                
+            } catch (error) {
+                console.error('Scanner error:', error);
+                showStatus(`Fout: ${error.message}`, 'error');
+                scanButton.textContent = 'Camera Starten';
+                scanButton.disabled = false;
+            }
+        }
+
+        function stopScanner() {
+            if (qrScanner) {
+                qrScanner.stop();
+                qrScanner.destroy();
+                qrScanner = null;
+            }
+            scanButton.textContent = 'Camera Starten';
+            showStatus('Scanner gestopt', 'info');
+        }
+
+        async function handleScanResult(result) {
+            const url = result.data;
+            
+            if (isSpotifyUrl(url)) {
+                // Stop scanner na succesvolle scan
+                stopScanner();
+                
+                // Extract track info
+                const trackId = extractSpotifyTrackId(url);
+                if (trackId) {
+                    currentTrackUrl = url;
+                    await displayTrackInfo(trackId);
+                    showStatus('QR-code succesvol gescand!', 'success');
+                } else {
+                    showStatus('Ongeldige Spotify URL gevonden', 'error');
+                }
+            } else {
+                showStatus('Dit is geen Spotify QR-code', 'error');
+            }
+        }
+
+        function isSpotifyUrl(url) {
+            return url.includes('spotify.com/track/') || url.includes('spotify:track:');
+        }
+
+        function extractSpotifyTrackId(url) {
+            const trackMatch = url.match(/track\/([a-zA-Z0-9]+)/);
+            return trackMatch ? trackMatch[1] : null;
+        }
+
+        function openSpotify(trackUrl) {
+            // Probeer eerst de Spotify app te openen
+            const spotifyAppUrl = trackUrl.replace('https://open.spotify.com/', 'spotify://');
+            
+            // Probeer app te openen
+            const iframe = document.createElement('iframe');
+            iframe.style.display = 'none';
+            iframe.src = spotifyAppUrl;
+            document.body.appendChild(iframe);
+            
+            // Fallback naar web versie na kort wachten
+            setTimeout(() => {
+                window.open(trackUrl, '_blank');
+                document.body.removeChild(iframe);
+            }, 2000);
+            
+            showStatus('Track gestart in Spotify', 'success');
+        }
+
+        function showStatus(message, type) {
+            status.textContent = message;
+            status.className = `status ${type}`;
+            status.style.display = 'block';
+            
+            if (type === 'success' || type === 'error') {
+                setTimeout(() => {
+                    status.style.display = 'none';
+                }, 3000);
+            }
+        }
+
+        // PWA Install functionality
+        function setupInstallPrompt() {
+            // Listen for the beforeinstallprompt event
+            window.addEventListener('beforeinstallprompt', (e) => {
+                e.preventDefault();
+                deferredPrompt = e;
+                showInstallPrompt();
             });
 
-          return response;
-        });
-      })
-  );
-});
+            installButton.addEventListener('click', async () => {
+                if (deferredPrompt) {
+                    deferredPrompt.prompt();
+                    const { outcome } = await deferredPrompt.userChoice;
+                    console.log(`User response to install prompt: ${outcome}`);
+                    deferredPrompt = null;
+                }
+                hideInstallPrompt();
+            });
 
-// Activate event
-self.addEventListener('activate', (event) => {
-  const cacheWhitelist = [CACHE_NAME];
-  
-  event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cacheName) => {
-          if (cacheWhitelist.indexOf(cacheName) === -1) {
-            return caches.delete(cacheName);
-          }
-        })
-      );
-    })
-  );
-});
+            dismissInstall.addEventListener('click', hideInstallPrompt);
+
+            // Check if already installed
+            window.addEventListener('appinstalled', () => {
+                hideInstallPrompt();
+                showStatus('App succesvol geïnstalleerd!', 'success');
+            });
+        }
+
+        function showInstallPrompt() {
+            installPrompt.classList.add('show');
+        }
+
+        function hideInstallPrompt() {
+            installPrompt.classList.remove('show');
+        }
+
+        // Service Worker registration
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js')
+                    .then(registration => {
+                        console.log('SW registered: ', registration);
+                    })
+                    .catch(registrationError => {
+                        console.log('SW registration failed: ', registrationError);
+                    });
+            });
+        }
+    </script>
+</body>
+</html>
