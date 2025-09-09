@@ -300,216 +300,198 @@
     <!-- QR Code Scanner Library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qr-scanner/1.4.2/qr-scanner.umd.min.js"></script>
     
-<script>
-  let qrScanner = null;
-  let deferredPrompt = null;
+    <script>
+        let qrScanner = null;
+        let deferredPrompt = null;
+        let currentTrackUrl = null;
 
-  // Huidige gevonden link (genormaliseerd)
-  let current = { webUrl: null, appUrl: null, type: null, id: null };
+        // DOM Elements
+        const video = document.getElementById('video');
+        const scanButton = document.getElementById('scanButton');
+        const status = document.getElementById('status');
+        const trackInfo = document.getElementById('trackInfo');
+        const trackTitle = document.getElementById('trackTitle');
+        const trackArtist = document.getElementById('trackArtist');
+        const playButton = document.getElementById('playButton');
+        const installPrompt = document.getElementById('installPrompt');
+        const installButton = document.getElementById('installButton');
+        const dismissInstall = document.getElementById('dismissInstall');
 
-  // DOM
-  const video = document.getElementById('video');
-  const scanButton = document.getElementById('scanButton');
-  const status = document.getElementById('status');
+        // Initialize app
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeApp();
+            setupInstallPrompt();
+        });
 
-  // Een super-minimalistische fallback-knop (wordt pas getoond bij nood)
-  let openFallbackBtn = document.getElementById('openFallback');
-  if (!openFallbackBtn) {
-    openFallbackBtn = document.createElement('button');
-    openFallbackBtn.id = 'openFallback';
-    openFallbackBtn.className = 'scan-button';
-    openFallbackBtn.textContent = 'Open in Spotify';
-    openFallbackBtn.style.display = 'none';
-    // plaats onder de scanner-box
-    document.querySelector('.scanner-container').appendChild(openFallbackBtn);
-  }
-  openFallbackBtn.addEventListener('click', () => {
-    if (current.webUrl) attemptOpen(current, /*fromGesture*/ true);
-  });
-
-  // Init
-  document.addEventListener('DOMContentLoaded', () => {
-    scanButton.addEventListener('click', toggleScanner);
-    setupInstallPrompt();
-  });
-
-  async function toggleScanner() {
-    if (qrScanner) {
-      stopScanner();
-    } else {
-      await startScanner();
-    }
-  }
-
-  async function startScanner() {
-    try {
-      scanButton.disabled = true;
-      scanButton.textContent = 'Camera starten...';
-
-      const hasCamera = await QrScanner.hasCamera();
-      if (!hasCamera) throw new Error('Geen camera gevonden op dit apparaat');
-
-      qrScanner = new QrScanner(
-        video,
-        result => handleScanResult(result),
-        {
-          onDecodeError: () => {},
-          highlightScanRegion: true,
-          highlightCodeOutline: true,
+        function initializeApp() {
+            scanButton.addEventListener('click', toggleScanner);
+            playButton.addEventListener('click', openSpotify);
         }
-      );
 
-      await qrScanner.start();
-      scanButton.textContent = 'Stop Scannen';
-      scanButton.disabled = false;
-      showStatus('Camera actief — houd QR-code voor de camera', 'info');
-      openFallbackBtn.style.display = 'none';
-
-    } catch (err) {
-      console.error(err);
-      showStatus(`Fout: ${err.message}`, 'error');
-      scanButton.textContent = 'Camera Starten';
-      scanButton.disabled = false;
-    }
-  }
-
-  function stopScanner() {
-    if (qrScanner) {
-      qrScanner.stop();
-      qrScanner.destroy();
-      qrScanner = null;
-    }
-    scanButton.textContent = 'Camera Starten';
-    showStatus('Scanner gestopt', 'info');
-  }
-
-  // ——— Spotify helpers ———
-  function isSpotifyUrl(url) {
-    return /open\\.spotify\\.com\\/(track|playlist)\\//.test(url) || /^spotify:(track|playlist):/i.test(url);
-  }
-
-  function normalizeSpotifyLink(raw) {
-    if (!raw) return null;
-
-    let m = raw.match(/^spotify:(track|playlist):([a-zA-Z0-9]+)$/i);
-    if (m) {
-      const type = m[1].toLowerCase();
-      const id = m[2];
-      return {
-        type, id,
-        appUrl: `spotify:${type}:${id}`,
-        webUrl: `https://open.spotify.com/${type}/${id}`
-      };
-    }
-
-    m = raw.match(/open\\.spotify\\.com\\/(track|playlist)\\/([a-zA-Z0-9]+)/i);
-    if (m) {
-      const type = m[1].toLowerCase();
-      const id = m[2];
-      return {
-        type, id,
-        appUrl: `spotify:${type}:${id}`,
-        webUrl: `https://open.spotify.com/${type}/${id}`
-      };
-    }
-    return null;
-  }
-
-  async function handleScanResult(result) {
-    const url = result.data?.trim();
-    if (!url || !isSpotifyUrl(url)) {
-      showStatus('Dit is geen geldige Spotify-link.', 'error');
-      return;
-    }
-
-    const norm = normalizeSpotifyLink(url);
-    if (!norm) {
-      showStatus('Kon de Spotify-link niet normaliseren.', 'error');
-      return;
-    }
-
-    // Stop scannen, meteen openen
-    stopScanner();
-    current = norm;
-    attemptOpen(norm, /*fromGesture*/ false);
-  }
-
-  // Probeer app-deeplink; als dat niet lukt (geblokkeerd), toon 1-tik fallback.
-  function attemptOpen(norm, fromGesture) {
-    openFallbackBtn.style.display = 'none';
-    showStatus('Bezig met openen in Spotify…', 'info');
-
-    const start = Date.now();
-    const fallbackTimer = setTimeout(() => {
-      // Als we nog op de pagina zijn, open webversie
-      if (Date.now() - start < 1600) {
-        // Als we hier geraken kan het zijn dat deeplink geblokkeerd werd.
-        // Toon 1-tik fallback als we niet vanuit een gesture kwamen.
-        if (!fromGesture) {
-          openFallbackBtn.style.display = 'inline-block';
-          showStatus('Tik op "Open in Spotify" als het niet automatisch opent.', 'info');
+        async function toggleScanner() {
+            if (qrScanner) {
+                stopScanner();
+            } else {
+                await startScanner();
+            }
         }
-        window.location.href = norm.webUrl;
-      }
-    }, 1100);
 
-    const clear = () => clearTimeout(fallbackTimer);
-    window.addEventListener('pagehide', clear, { once: true });
-    window.addEventListener('blur', clear, { once: true });
+        async function startScanner() {
+            try {
+                scanButton.disabled = true;
+                scanButton.textContent = 'Camera starten...';
+                
+                // Check if camera is available
+                const hasCamera = await QrScanner.hasCamera();
+                if (!hasCamera) {
+                    throw new Error('Geen camera gevonden op dit apparaat');
+                }
 
-    // Deeplink naar app
-    window.location.href = norm.appUrl;
-  }
+                qrScanner = new QrScanner(
+                    video,
+                    result => handleScanResult(result),
+                    {
+                        onDecodeError: error => {
+                            // Negeer decode errors tijdens scannen
+                        },
+                        highlightScanRegion: true,
+                        highlightCodeOutline: true,
+                    }
+                );
 
-  // ——— Status UI ———
-  function showStatus(message, type) {
-    status.textContent = message;
-    status.className = `status ${type}`;
-    status.style.display = 'block';
+                await qrScanner.start();
+                
+                scanButton.textContent = 'Stop Scannen';
+                scanButton.disabled = false;
+                showStatus('Camera actief - houd QR-code voor de camera', 'info');
+                
+            } catch (error) {
+                console.error('Scanner error:', error);
+                showStatus(`Fout: ${error.message}`, 'error');
+                scanButton.textContent = 'Camera Starten';
+                scanButton.disabled = false;
+            }
+        }
 
-    if (type === 'success' || type === 'error') {
-      setTimeout(() => { status.style.display = 'none'; }, 3000);
-    }
-  }
+        function stopScanner() {
+            if (qrScanner) {
+                qrScanner.stop();
+                qrScanner.destroy();
+                qrScanner = null;
+            }
+            scanButton.textContent = 'Camera Starten';
+            showStatus('Scanner gestopt', 'info');
+        }
 
-  // ——— Install prompt (PWA) ———
-  function setupInstallPrompt() {
-    window.addEventListener('beforeinstallprompt', (e) => {
-      e.preventDefault();
-      deferredPrompt = e;
-      showInstallPrompt();
-    });
+        async function handleScanResult(result) {
+            const url = result.data;
+            
+            if (isSpotifyUrl(url)) {
+                // Stop scanner na succesvolle scan
+                stopScanner();
+                
+                // Extract track info
+                const trackId = extractSpotifyTrackId(url);
+                if (trackId) {
+                    currentTrackUrl = url;
+                    await displayTrackInfo(trackId);
+                    showStatus('QR-code succesvol gescand!', 'success');
+                } else {
+                    showStatus('Ongeldige Spotify URL gevonden', 'error');
+                }
+            } else {
+                showStatus('Dit is geen Spotify QR-code', 'error');
+            }
+        }
 
-    const installPrompt = document.getElementById('installPrompt');
-    const installButton = document.getElementById('installButton');
-    const dismissInstall = document.getElementById('dismissInstall');
+        function isSpotifyUrl(url) {
+            return url.includes('spotify.com/track/') || url.includes('spotify:track:');
+        }
 
-    function showInstallPrompt() { installPrompt?.classList.add('show'); }
-    function hideInstallPrompt() { installPrompt?.classList.remove('show'); }
+        function extractSpotifyTrackId(url) {
+            const trackMatch = url.match(/track\/([a-zA-Z0-9]+)/);
+            return trackMatch ? trackMatch[1] : null;
+        }
 
-    installButton?.addEventListener('click', async () => {
-      if (deferredPrompt) {
-        deferredPrompt.prompt();
-        await deferredPrompt.userChoice;
-        deferredPrompt = null;
-      }
-      hideInstallPrompt();
-    });
+        function openSpotify(trackUrl) {
+            // Probeer eerst de Spotify app te openen
+            const spotifyAppUrl = trackUrl.replace('https://open.spotify.com/', 'spotify://');
+            
+            // Probeer app te openen
+            const iframe = document.createElement('iframe');
+            iframe.style.display = 'none';
+            iframe.src = spotifyAppUrl;
+            document.body.appendChild(iframe);
+            
+            // Fallback naar web versie na kort wachten
+            setTimeout(() => {
+                window.open(trackUrl, '_blank');
+                document.body.removeChild(iframe);
+            }, 2000);
+            
+            showStatus('Track gestart in Spotify', 'success');
+        }
 
-    dismissInstall?.addEventListener('click', hideInstallPrompt);
+        function showStatus(message, type) {
+            status.textContent = message;
+            status.className = `status ${type}`;
+            status.style.display = 'block';
+            
+            if (type === 'success' || type === 'error') {
+                setTimeout(() => {
+                    status.style.display = 'none';
+                }, 3000);
+            }
+        }
 
-    window.addEventListener('appinstalled', () => {
-      hideInstallPrompt();
-      showStatus('App succesvol geïnstalleerd!', 'success');
-    });
-  }
+        // PWA Install functionality
+        function setupInstallPrompt() {
+            // Listen for the beforeinstallprompt event
+            window.addEventListener('beforeinstallprompt', (e) => {
+                e.preventDefault();
+                deferredPrompt = e;
+                showInstallPrompt();
+            });
 
-  // ——— Service Worker ———
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('sw.js').catch(() => {});
-    });
-  }
-</script>
+            installButton.addEventListener('click', async () => {
+                if (deferredPrompt) {
+                    deferredPrompt.prompt();
+                    const { outcome } = await deferredPrompt.userChoice;
+                    console.log(`User response to install prompt: ${outcome}`);
+                    deferredPrompt = null;
+                }
+                hideInstallPrompt();
+            });
+
+            dismissInstall.addEventListener('click', hideInstallPrompt);
+
+            // Check if already installed
+            window.addEventListener('appinstalled', () => {
+                hideInstallPrompt();
+                showStatus('App succesvol geïnstalleerd!', 'success');
+            });
+        }
+
+        function showInstallPrompt() {
+            installPrompt.classList.add('show');
+        }
+
+        function hideInstallPrompt() {
+            installPrompt.classList.remove('show');
+        }
+
+        // Service Worker registration
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js')
+                    .then(registration => {
+                        console.log('SW registered: ', registration);
+                    })
+                    .catch(registrationError => {
+                        console.log('SW registration failed: ', registrationError);
+                    });
+            });
+        }
+    </script>
 </body>
 </html>
