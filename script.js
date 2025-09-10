@@ -72,46 +72,51 @@ function stopScanner() {
 }
 
 async function handleScanResult(result) {
-    const url = result.data;
-    console.log('Gescande URL:', url); // Belangrijk voor debugging
+    const data = result.data;
+    console.log('Gescande data:', data);
 
-    if (isSpotifyUrl(url)) {
+    if (isSpotify(data)) {
         stopScanner();
-        openSpotify(url);
+        openSpotify(data);
     } else {
-        showStatus('Dit is geen Spotify QR-code', 'error');
+        showStatus('Dit is geen Spotify-code', 'error');
     }
 }
 
-function isSpotifyUrl(url) {
-    // Verbeterde check: controleert op de verkorte Google-link en de standaard Spotify-URI.
-    // Let op: 'googleusercontent.com' is een Google-domein, dus de check is flexibeler.
-    const isGoogleSpotifyLink = url.includes('googleusercontent.com') && url.includes('spotify.com');
-    const isSpotifyUri = url.startsWith('spotify:track:');
-    
-    return isGoogleSpotifyLink || isSpotifyUri;
+function isSpotify(data) {
+    // Controleert of de data een Spotify URL of URI is.
+    // De 'includes' check is hier veiliger dan een 'startsWith' omdat sommige QR codes
+    // omleidingen van Google gebruiken die de URL aanpassen.
+    return data.includes('spotify.com/track/') || data.includes('spotify:track:');
 }
 
-function openSpotify(trackUrl) {
-    if (!trackUrl) {
+function openSpotify(data) {
+    if (!data) {
         showStatus('Geen track URL beschikbaar', 'error');
         return;
     }
-    
-    // Converteer de Google-link naar een Spotify deep link
-    let finalUrl = trackUrl;
-    if (trackUrl.includes('googleusercontent.com')) {
-        finalUrl = trackUrl.replace('http://googleusercontent.com/spotify.com/', 'spotify://');
+
+    // De juiste deep link is de data zelf, mocht het een URI zijn.
+    // Anders converteer je de URL naar een URI.
+    let finalUri = data;
+    if (data.includes('spotify.com/track/')) {
+        const trackId = data.match(/track\/([a-zA-Z0-9]+)/);
+        if (trackId && trackId[1]) {
+            finalUri = `spotify:track:${trackId[1]}`;
+        }
     }
 
     const iframe = document.createElement('iframe');
     iframe.style.display = 'none';
-    iframe.src = finalUrl;
+    iframe.src = finalUri;
     document.body.appendChild(iframe);
 
-    // Val terug op de webversie na een korte vertraging, mocht de app niet openen
+    // Val terug op de webversie na een korte vertraging
     setTimeout(() => {
-        window.open(trackUrl, '_blank');
+        // Zorgt ervoor dat de gebruiker wordt doorgestuurd naar de webversie als de app niet opent.
+        if (data.startsWith('http')) {
+            window.open(data, '_blank');
+        }
         document.body.removeChild(iframe);
     }, 2000);
 
