@@ -7,16 +7,14 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Spotify QR">
-    
+
     <title>Spotify QR Scanner</title>
-    
-    <!-- PWA Manifest -->
+
     <link rel="manifest" href="manifest.json">
-    
-    <!-- Icons -->
+
     <link rel="apple-touch-icon" href="icon-192x192.png">
     <link rel="icon" type="image/png" sizes="192x192" href="icon-192x192.png">
-    
+
     <style>
         * {
             margin: 0;
@@ -246,16 +244,26 @@
             font-weight: 600;
         }
 
+        .install-button {
+            background: #1DB954;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 15px;
+            margin-top: 10px;
+            cursor: pointer;
+            font-weight: 600;
+        }
         @media (max-width: 480px) {
             .container {
                 padding: 15px;
             }
-            
+
             .scanner-box {
                 width: 250px;
                 height: 250px;
             }
-            
+
             .scanner-overlay {
                 width: 180px;
                 height: 180px;
@@ -276,9 +284,9 @@
                 <video id="video" autoplay muted playsinline></video>
                 <div class="scanner-overlay"></div>
             </div>
-            
+
             <button id="scanButton" class="scan-button">Camera Starten</button>
-            
+
             <div id="status" class="status info" style="display: none;">
                 Klaar om te scannen...
             </div>
@@ -297,9 +305,8 @@
         <button id="dismissInstall" class="install-button" style="background: #666; margin-left: 10px;">Negeren</button>
     </div>
 
-    <!-- QR Code Scanner Library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qr-scanner/1.4.2/qr-scanner.umd.min.js"></script>
-    
+
     <script>
         let qrScanner = null;
         let deferredPrompt = null;
@@ -325,7 +332,8 @@
 
         function initializeApp() {
             scanButton.addEventListener('click', toggleScanner);
-            playButton.addEventListener('click', openSpotify);
+            // Change: Call openSpotify with the stored URL
+            playButton.addEventListener('click', () => openSpotify(currentTrackUrl));
         }
 
         async function toggleScanner() {
@@ -340,7 +348,7 @@
             try {
                 scanButton.disabled = true;
                 scanButton.textContent = 'Camera starten...';
-                
+
                 // Check if camera is available
                 const hasCamera = await QrScanner.hasCamera();
                 if (!hasCamera) {
@@ -360,11 +368,11 @@
                 );
 
                 await qrScanner.start();
-                
+
                 scanButton.textContent = 'Stop Scannen';
                 scanButton.disabled = false;
                 showStatus('Camera actief - houd QR-code voor de camera', 'info');
-                
+
             } catch (error) {
                 console.error('Scanner error:', error);
                 showStatus(`Fout: ${error.message}`, 'error');
@@ -385,16 +393,17 @@
 
         async function handleScanResult(result) {
             const url = result.data;
-            
+
             if (isSpotifyUrl(url)) {
                 // Stop scanner na succesvolle scan
                 stopScanner();
-                
+
                 // Extract track info
                 const trackId = extractSpotifyTrackId(url);
                 if (trackId) {
-                    currentTrackUrl = url;
-                    await displayTrackInfo(trackId);
+                    currentTrackUrl = url; // Store the URL
+                    // Change: Call the function to display track info
+                    displayTrackInfo(trackId);
                     showStatus('QR-code succesvol gescand!', 'success');
                 } else {
                     showStatus('Ongeldige Spotify URL gevonden', 'error');
@@ -405,7 +414,7 @@
         }
 
         function isSpotifyUrl(url) {
-            return url.includes('spotify.com/track/') || url.includes('spotify:track:');
+            return url.includes('spotify.com/') || url.includes('spotify:track:');
         }
 
         function extractSpotifyTrackId(url) {
@@ -413,22 +422,37 @@
             return trackMatch ? trackMatch[1] : null;
         }
 
+        // Change: This function is now defined. It's a placeholder for real API calls.
+        function displayTrackInfo(trackId) {
+            // In a real scenario, you'd use the Spotify Web API here
+            // to fetch track details like name and artist based on trackId.
+            // For now, we'll use placeholder data.
+            trackTitle.textContent = 'Track gescand!';
+            trackArtist.textContent = `ID: ${trackId}`;
+            trackInfo.style.display = 'block';
+        }
+
         function openSpotify(trackUrl) {
+            if (!trackUrl) {
+                showStatus('Geen track URL beschikbaar', 'error');
+                return;
+            }
+
             // Probeer eerst de Spotify app te openen
             const spotifyAppUrl = trackUrl.replace('https://open.spotify.com/', 'spotify://');
-            
+
             // Probeer app te openen
             const iframe = document.createElement('iframe');
             iframe.style.display = 'none';
             iframe.src = spotifyAppUrl;
             document.body.appendChild(iframe);
-            
+
             // Fallback naar web versie na kort wachten
             setTimeout(() => {
                 window.open(trackUrl, '_blank');
                 document.body.removeChild(iframe);
             }, 2000);
-            
+
             showStatus('Track gestart in Spotify', 'success');
         }
 
@@ -436,7 +460,7 @@
             status.textContent = message;
             status.className = `status ${type}`;
             status.style.display = 'block';
-            
+
             if (type === 'success' || type === 'error') {
                 setTimeout(() => {
                     status.style.display = 'none';
