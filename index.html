@@ -16,6 +16,7 @@
     <link rel="icon" type="image/png" sizes="192x192" href="icon-192x192.png">
 
     <style>
+        /* CSS is ongewijzigd */
         * {
             margin: 0;
             padding: 0;
@@ -177,42 +178,8 @@
             border: 1px solid rgba(255, 255, 255, 0.2);
         }
 
-        .track-info {
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 15px;
-            padding: 20px;
-            margin-top: 20px;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-        }
-
-        .track-title {
-            font-size: 18px;
-            font-weight: 700;
-            margin-bottom: 5px;
-        }
-
-        .track-artist {
-            color: rgba(255, 255, 255, 0.8);
-            margin-bottom: 15px;
-        }
-
-        .play-button {
-            background: #1DB954;
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 20px;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            width: 100%;
-        }
-
-        .play-button:hover {
-            background: #1ed760;
-        }
+        /* De track-info sectie is hier niet meer van toepassing */
+        /* .track-info, .track-title, .track-artist, .play-button { display: none; } */
 
         .install-prompt {
             position: fixed;
@@ -290,12 +257,7 @@
             <div id="status" class="status info" style="display: none;">
                 Klaar om te scannen...
             </div>
-
-            <div id="trackInfo" class="track-info" style="display: none;">
-                <div class="track-title" id="trackTitle"></div>
-                <div class="track-artist" id="trackArtist"></div>
-                <button class="play-button" id="playButton">▶ Afspelen op Spotify</button>
-            </div>
+            <div id="trackInfo" style="display: none;"></div>
         </div>
     </div>
 
@@ -310,16 +272,12 @@
     <script>
         let qrScanner = null;
         let deferredPrompt = null;
-        let currentTrackUrl = null;
+        // let currentTrackUrl = null; (niet meer nodig)
 
         // DOM Elements
         const video = document.getElementById('video');
         const scanButton = document.getElementById('scanButton');
         const status = document.getElementById('status');
-        const trackInfo = document.getElementById('trackInfo');
-        const trackTitle = document.getElementById('trackTitle');
-        const trackArtist = document.getElementById('trackArtist');
-        const playButton = document.getElementById('playButton');
         const installPrompt = document.getElementById('installPrompt');
         const installButton = document.getElementById('installButton');
         const dismissInstall = document.getElementById('dismissInstall');
@@ -332,8 +290,6 @@
 
         function initializeApp() {
             scanButton.addEventListener('click', toggleScanner);
-            // Change: Call openSpotify with the stored URL
-            playButton.addEventListener('click', () => openSpotify(currentTrackUrl));
         }
 
         async function toggleScanner() {
@@ -359,9 +315,7 @@
                     video,
                     result => handleScanResult(result),
                     {
-                        onDecodeError: error => {
-                            // Negeer decode errors tijdens scannen
-                        },
+                        onDecodeError: error => {},
                         highlightScanRegion: true,
                         highlightCodeOutline: true,
                     }
@@ -398,38 +352,17 @@
                 // Stop scanner na succesvolle scan
                 stopScanner();
 
-                // Extract track info
-                const trackId = extractSpotifyTrackId(url);
-                if (trackId) {
-                    currentTrackUrl = url; // Store the URL
-                    // Change: Call the function to display track info
-                    displayTrackInfo(trackId);
-                    showStatus('QR-code succesvol gescand!', 'success');
-                } else {
-                    showStatus('Ongeldige Spotify URL gevonden', 'error');
-                }
+                // Open Spotify direct na het scannen
+                openSpotify(url);
+
             } else {
                 showStatus('Dit is geen Spotify QR-code', 'error');
             }
         }
 
         function isSpotifyUrl(url) {
-            return url.includes('spotify.com/') || url.includes('spotify:track:');
-        }
-
-        function extractSpotifyTrackId(url) {
-            const trackMatch = url.match(/track\/([a-zA-Z0-9]+)/);
-            return trackMatch ? trackMatch[1] : null;
-        }
-
-        // Change: This function is now defined. It's a placeholder for real API calls.
-        function displayTrackInfo(trackId) {
-            // In a real scenario, you'd use the Spotify Web API here
-            // to fetch track details like name and artist based on trackId.
-            // For now, we'll use placeholder data.
-            trackTitle.textContent = 'Track gescand!';
-            trackArtist.textContent = `ID: ${trackId}`;
-            trackInfo.style.display = 'block';
+            // Controleer op de specifieke Google-link en de standaard Spotify URI
+            return url.includes('http://googleusercontent.com/spotify.com/') || url.includes('spotify:track:');
         }
 
         function openSpotify(trackUrl) {
@@ -438,22 +371,22 @@
                 return;
             }
 
-            // Probeer eerst de Spotify app te openen
-            const spotifyAppUrl = trackUrl.replace('https://open.spotify.com/', 'spotify://');
+            // Gebruik de `spotify://` URI voor een deep link naar de app
+            const spotifyAppUrl = trackUrl.replace('http://googleusercontent.com/spotify.com/', 'spotify://');
 
-            // Probeer app te openen
+            // Probeer de app te openen
             const iframe = document.createElement('iframe');
             iframe.style.display = 'none';
             iframe.src = spotifyAppUrl;
             document.body.appendChild(iframe);
 
-            // Fallback naar web versie na kort wachten
+            // Fallback naar de webversie na een korte vertraging
             setTimeout(() => {
                 window.open(trackUrl, '_blank');
                 document.body.removeChild(iframe);
             }, 2000);
 
-            showStatus('Track gestart in Spotify', 'success');
+            showStatus('Track wordt geopend in Spotify...', 'success');
         }
 
         function showStatus(message, type) {
@@ -470,7 +403,6 @@
 
         // PWA Install functionality
         function setupInstallPrompt() {
-            // Listen for the beforeinstallprompt event
             window.addEventListener('beforeinstallprompt', (e) => {
                 e.preventDefault();
                 deferredPrompt = e;
@@ -489,7 +421,6 @@
 
             dismissInstall.addEventListener('click', hideInstallPrompt);
 
-            // Check if already installed
             window.addEventListener('appinstalled', () => {
                 hideInstallPrompt();
                 showStatus('App succesvol geïnstalleerd!', 'success');
