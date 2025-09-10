@@ -28,10 +28,11 @@
                 <video id="video" autoplay muted playsinline></video>
                 <div class="scanner-overlay"></div>
             </div>
+
+            <button id="authButton" class="scan-button">Log in met Spotify</button>
+            <button id="scanButton" class="scan-button" style="display:none;">Camera Starten</button>
             
-            <button id="scanButton" class="scan-button">Camera Starten</button>
-            
-            <div id="status" class="status info" style="display: none;">
+            <div id="status" class="status info">
                 Klaar om te scannen...
             </div>
             
@@ -46,6 +47,7 @@
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qr-scanner/1.4.2/qr-scanner.umd.min.js"></script>
+    <script src="https://sdk.scdn.co/spotify-player.js"></script>
     <script src="script.js"></script>
 </body>
 </html>
