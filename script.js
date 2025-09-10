@@ -6,11 +6,12 @@ let accessToken = null;
 
 // Spotify API credentials - VERVANG MET JOUW GEGEVENS!
 const clientId = '85e1ab0fea254ea3b5d9d0e1a866238d';
-const redirectUri = 'https://geertmendonck.github.io/Fritster/index.html'; // Bijv. 'https://jouwgebruikersnaam.github.io/jouw-repo-naam/index.html'
+const redirectUri = 'https://geertmendonck.github.io/Fritster/index.html'; 
 
 // DOM Elements
 const video = document.getElementById('video');
 const scanButton = document.getElementById('scanButton');
+const authButton = document.getElementById('authButton'); // Nieuwe knop
 const status = document.getElementById('status');
 const installPrompt = document.getElementById('installPrompt');
 const installButton = document.getElementById('installButton');
@@ -25,8 +26,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 function initializeApp() {
     scanButton.addEventListener('click', toggleScanner);
-    scanButton.disabled = true;
-    showStatus('Verbinden met Spotify. Eenmalige login nodig.', 'info');
+    authButton.addEventListener('click', redirectToSpotifyAuthorize);
 }
 
 // Functie voor authenticatie en tokenbeheer
@@ -35,6 +35,7 @@ async function handleAuthentication() {
     const code = urlParams.get('code');
 
     if (code) {
+        authButton.style.display = 'none'; // Verberg de login knop
         try {
             accessToken = await getAccessToken(code);
             window.history.pushState({}, document.title, window.location.pathname);
@@ -42,24 +43,13 @@ async function handleAuthentication() {
         } catch (error) {
             console.error('Authenticatie mislukt:', error);
             showStatus('Authenticatie mislukt. Probeer opnieuw.', 'error');
-            authButton.style.display = 'block';
+            authButton.style.display = 'block'; // Toon de login knop
         }
     } else {
         showStatus('Log in om de scanner te activeren.', 'info');
-        authButton.style.display = 'block';
+        authButton.style.display = 'block'; // Toon de login knop
     }
 }
-
-// In de getAccessToken functie:
-async function getAccessToken(code) {
-    const codeVerifier = localStorage.getItem('code_verifier');
-    const body = new URLSearchParams({
-        grant_type: 'authorization_code',
-        code: code,
-        redirect_uri: window.location.href.split('?')[0], // Gebruik de URL van de huidige pagina
-        client_id: clientId,
-        code_verifier: codeVerifier,
-    });
 
 async function redirectToSpotifyAuthorize() {
     const codeVerifier = generateRandomString(128);
@@ -137,12 +127,13 @@ function initializeSpotifyPlayer(token) {
             console.log('Ready met Device ID', device_id);
             deviceId = device_id;
             showStatus('Verbonden met Spotify! Klaar om te scannen.', 'success');
-            scanButton.disabled = false;
+            scanButton.style.display = 'block'; // Toon de scanner knop
         });
 
         player.addListener('not_ready', ({ device_id }) => {
             console.log('Apparaat is offline', device_id);
             showStatus('Niet verbonden met Spotify. Apparaat is offline.', 'error');
+            scanButton.style.display = 'none';
         });
 
         player.addListener('initialization_error', ({ message }) => {
