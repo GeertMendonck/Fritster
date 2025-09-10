@@ -4,14 +4,14 @@ let player = null;
 let deviceId = null;
 let accessToken = null;
 
-// Spotify API credentials - VERVANG MET JOUW GEGEVENS!
+// Spotify API credentials - VERVANG DIT MET JOUW GEGEVENS!
 const clientId = '85e1ab0fea254ea3b5d9d0e1a866238d';
 const redirectUri = 'https://geertmendonck.github.io/Fritster/index.html'; 
 
 // DOM Elements
 const video = document.getElementById('video');
 const scanButton = document.getElementById('scanButton');
-const authButton = document.getElementById('authButton'); // Nieuwe knop
+const authButton = document.getElementById('authButton');
 const status = document.getElementById('status');
 const installPrompt = document.getElementById('installPrompt');
 const installButton = document.getElementById('installButton');
@@ -29,13 +29,13 @@ function initializeApp() {
     authButton.addEventListener('click', redirectToSpotifyAuthorize);
 }
 
-// Functie voor authenticatie en tokenbeheer
 async function handleAuthentication() {
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get('code');
 
     if (code) {
         authButton.style.display = 'none'; // Verberg de login knop
+        showStatus('Verbinden met Spotify. Eenmalige login nodig.', 'info');
         try {
             accessToken = await getAccessToken(code);
             window.history.pushState({}, document.title, window.location.pathname);
@@ -43,7 +43,7 @@ async function handleAuthentication() {
         } catch (error) {
             console.error('Authenticatie mislukt:', error);
             showStatus('Authenticatie mislukt. Probeer opnieuw.', 'error');
-            authButton.style.display = 'block'; // Toon de login knop
+            authButton.style.display = 'block'; // Toon de login knop bij mislukking
         }
     } else {
         showStatus('Log in om de scanner te activeren.', 'info');
@@ -139,6 +139,8 @@ function initializeSpotifyPlayer(token) {
         player.addListener('initialization_error', ({ message }) => {
             console.error('Initialisatie fout:', message);
             showStatus('Fout bij het initialiseren van de speler.', 'error');
+            scanButton.style.display = 'none';
+            authButton.style.display = 'block';
         });
 
         player.connect();
