@@ -37,17 +37,29 @@ async function handleAuthentication() {
     if (code) {
         try {
             accessToken = await getAccessToken(code);
-            console.log("Access Token verkregen:", accessToken);
             window.history.pushState({}, document.title, window.location.pathname);
             initializeSpotifyPlayer(accessToken);
         } catch (error) {
             console.error('Authenticatie mislukt:', error);
             showStatus('Authenticatie mislukt. Probeer opnieuw.', 'error');
+            authButton.style.display = 'block';
         }
     } else {
-        redirectToSpotifyAuthorize();
+        showStatus('Log in om de scanner te activeren.', 'info');
+        authButton.style.display = 'block';
     }
 }
+
+// In de getAccessToken functie:
+async function getAccessToken(code) {
+    const codeVerifier = localStorage.getItem('code_verifier');
+    const body = new URLSearchParams({
+        grant_type: 'authorization_code',
+        code: code,
+        redirect_uri: window.location.href.split('?')[0], // Gebruik de URL van de huidige pagina
+        client_id: clientId,
+        code_verifier: codeVerifier,
+    });
 
 async function redirectToSpotifyAuthorize() {
     const codeVerifier = generateRandomString(128);
