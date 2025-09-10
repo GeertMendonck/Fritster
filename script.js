@@ -16,7 +16,7 @@ const installPrompt = document.getElementById('installPrompt');
 const installButton = document.getElementById('installButton');
 const dismissInstall = document.getElementById('dismissInstall');
 
-// Initialisatie van de app
+// Initialisatie van de app bij het laden van de pagina
 document.addEventListener('DOMContentLoaded', function() {
     initializeApp();
     setupInstallPrompt();
@@ -25,6 +25,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
 function initializeApp() {
     scanButton.addEventListener('click', toggleScanner);
+    scanButton.disabled = true;
+    showStatus('Verbinden met Spotify. Eenmalige login nodig.', 'info');
 }
 
 // Functie voor authenticatie en tokenbeheer
@@ -43,8 +45,6 @@ async function handleAuthentication() {
             showStatus('Authenticatie mislukt. Probeer opnieuw.', 'error');
         }
     } else {
-        // Vraag om authenticatie indien er geen token is
-        showStatus('Verbinden met Spotify. Eenmalige login nodig.', 'info');
         redirectToSpotifyAuthorize();
     }
 }
@@ -246,7 +246,7 @@ function showStatus(message, type) {
     }
 }
 
-// PWA Install functionality
+// PWA Install functionaliteit
 function setupInstallPrompt() {
     window.addEventListener('beforeinstallprompt', (e) => {
         e.preventDefault();
@@ -280,7 +280,7 @@ function hideInstallPrompt() {
     installPrompt.classList.remove('show');
 }
 
-// Service Worker registration
+// Service Worker registratie
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         navigator.serviceWorker.register('sw.js')
