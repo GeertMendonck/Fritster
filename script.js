@@ -4,20 +4,17 @@ let player = null;
 let deviceId = null;
 let accessToken = null;
 
-// Spotify API credentials - VERVANG DIT MET JOUW GEGEVENS!
 const clientId = '85e1ab0fea254ea3b5d9d0e1a866238d';
 const redirectUri = 'https://geertmendonck.github.io/Fritster/index.html'; 
 
-// DOM Elements
 const video = document.getElementById('video');
 const scanButton = document.getElementById('scanButton');
 const authButton = document.getElementById('authButton');
 const status = document.getElementById('status');
 const installPrompt = document.getElementById('installPrompt');
 const installButton = document.getElementById('installButton');
-const dismissInstall = document.getElementById('dismissInstall');
+const dismissInstall = document = document.getElementById('dismissInstall');
 
-// Initialisatie van de app bij het laden van de pagina
 document.addEventListener('DOMContentLoaded', function() {
     initializeApp();
     setupInstallPrompt();
@@ -29,13 +26,14 @@ function initializeApp() {
     authButton.addEventListener('click', redirectToSpotifyAuthorize);
 }
 
+// Functie voor authenticatie en tokenbeheer
 async function handleAuthentication() {
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get('code');
 
     if (code) {
-        authButton.style.display = 'none'; // Verberg de login knop
-        showStatus('Verbinden met Spotify. Eenmalige login nodig.', 'info');
+        showStatus('Verbinden met Spotify...', 'info');
+        authButton.style.display = 'none'; // Verberg login knop
         try {
             accessToken = await getAccessToken(code);
             window.history.pushState({}, document.title, window.location.pathname);
@@ -43,11 +41,13 @@ async function handleAuthentication() {
         } catch (error) {
             console.error('Authenticatie mislukt:', error);
             showStatus('Authenticatie mislukt. Probeer opnieuw.', 'error');
-            authButton.style.display = 'block'; // Toon de login knop bij mislukking
+            authButton.style.display = 'block'; // Toon login knop
         }
     } else {
+        // Indien geen code in de URL, toon de login knop
         showStatus('Log in om de scanner te activeren.', 'info');
-        authButton.style.display = 'block'; // Toon de login knop
+        authButton.style.display = 'block';
+        scanButton.style.display = 'none'; // Verberg de scanner knop
     }
 }
 
